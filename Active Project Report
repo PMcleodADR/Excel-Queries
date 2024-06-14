@@ -1,0 +1,133 @@
+Select project [Project], RTrim(Name) AS Name, [CustId], opportunityID, [Description], CAST([Start Date] as Date) [Start Date],
+              CAST([end date] as Date) [End Date], Manager, [Acct Mgr],
+              Round(Sum([Budg Rev]),0)                                                                                                   AS [Budg Rev],
+              Round(Sum([PTD Rev]),0)                                                                                                                         AS [PTD Rev],
+              Round(Sum([PTD Costs]),0)                                                                                                         AS [PTD Costs],
+              IsNull(max([Open PO's]),0)                                                                                                        AS [Open PO's],
+              Round(Sum([PTD Costs]) + IsNull(max([Open PO's]),0), 0) as [Total Costs],
+              Round(Sum([Rev Backlog]),0) as [Rev Backlog],
+              Round(Sum([Non-Rev Backlog]),0) as [Non-Rev Backlog],
+              CASE WHEN Sum([PTD Rev]) != 0
+                  THEN Round((Sum([PTD Rev]) - (Sum([PTD Costs]) + IsNull(max([Open PO's]),0)))/ Sum([PTD Rev]),2) ELSE 0 END
+                                                                                                                                                                     AS [Rev GPM%],
+              Round(Sum([Budg Cost]),0)                                                                                                         AS [Budg Cost],
+              CASE WHEN Sum([Budg Rev]) != 0 AND Sum([Budg Cost]) != 0
+                     THEN Round((Sum([Budg Rev]) - Sum([Budg Cost]))/Sum([Budg Rev]),2) ELSE 0 END
+                                                                                                                                                                     AS [Bdgt GPM%],
+              --CASE WHEN Sum([PTD Rev]) + Round(max([Budg Rev]) - Sum([PTD Rev]),2) != 0
+              --    THEN Round(SUM([PTD Rev]) + (Sum([Budg Rev]) - Sum([PTD Rev]))
+              --- Sum([Total Costs]) / (Isnull(Sum([PTD Rev]) + (Sum([Budg Rev]) - Sum([PTD Rev])),0)), 2)  ELSE 0 END
+              --                                                                                                                                                     AS [PTD GPM%],
+              CASE WHEN Sum([PTD Rev]) + Round(max([Budg Rev]) - Sum([PTD Rev]),2) != 0
+                  THEN Round ((SUM([PTD Rev]) + (Sum([Budg Rev]) - Sum([PTD Rev]))
+              - (Sum([PTD Costs]) + IsNull(max([Open PO's]),0))) / (Isnull(Sum([PTD Rev]) + (Sum([Budg Rev]) - Sum([PTD Rev])),0)), 2) ELSE 0 END
+                                                                                                                                                                     AS [PTD GPM%],                                                                                                                                                     
+        IsNull(max([Open AR]), 0) as [Open AR],
+              IsNull(max([Open AP]), 0) as [Open AP],
+           max([Labor Flag]) as [Labor Flag]
+             
+ 
+              from (
+ 
+ 
+Select y.project [Project], RTrim(Name) AS Name, [CustID], project_desc [Description], opportunityID,CAST(Start_Date as Date) [Start Date],
+              CAST(end_date as Date) [End Date], emp_name AS Manager, [Acct Mgr],
+              Round(Sum([Contract Value]),0)                                                                                                    AS [Budg Rev],
+              Round(Sum([RTD]),0)                                                                                                                      AS [PTD Rev],
+              Round(Sum([JTD Costs]),0)                                                                                                         AS [PTD Costs],
+              IsNull(max(Commitments),0)                                                                                                        AS [Open PO's],
+              Round(Sum([JTD Costs]) + IsNull(max(Commitments),0), 0) as [Total Costs],
+             
+              --CASE WHEN Sum([RTD]) != 0
+              --    THEN Round((Sum([RTD]) - Sum([JTD Costs]))/ Sum([RTD]),2) ELSE 0 END
+              --                                                                                                                                                     AS [Rev GPM%],
+              Round(Sum([EAC/Budget]),0)                                                                                                        AS [Budg Cost],
+              --CASE WHEN Sum([Contract Value]) != 0 AND Sum([EAC/Budget]) != 0
+              --     THEN Round((Sum([Contract Value]) - Sum([EAC/Budget]))/Sum([Contract Value]),2) ELSE 0 END
+              --                                                                                                                                                     AS [Bdgt GPM%],
+              --CASE WHEN Sum([RTD]) + Round(max([Contract Value]) - Sum([RTD]),2) != 0
+              --    THEN Round ((SUM([RTD]) + (Sum([Contract Value]) - Sum([RTD]))
+              --- (Sum([JTD Costs]) + IsNull(max(Commitments),0))) / (Isnull(Sum([RTD]) + (Sum([Contract Value]) - Sum([RTD])),0)), 2) ELSE 0 END
+              --                                                                                                                                                     AS [PTD GPM%],                                                                                                                                                     
+        IsNull(max([Open AR]), 0) as [Open AR],
+              IsNull(max([Open AP]), 0) as [Open AP],
+           max(status_lb) as [Labor Flag],
+              CASE WHEN [Backlog Type] = 'REV' THEN Round(Sum([Contract Value]),0) - Round(Sum([Billed Amt]),0) ELSE 0 END as [Rev Backlog],
+              CASE WHEN [Backlog Type] = 'nonREV' THEN Round(Sum([Contract Value]),0) - Round(Sum([Billed Amt]),0) ELSE 0 END as [Non-Rev Backlog] 
+           
+           
+             
+       From (
+       Select project, pjt_entity, [CustID],  project_desc, opportunityID, Max(cpnyid) AS Company, Name, [Acct Mgr], start_date, end_date, emp_name, status_lb,
+       ------------------------------------------------------------------------------------
+                     CASE When column_nbr = 6 AND acct_type = 'RV' then
+                                  Sum(eac_amount)
+                           else 0 End                                                                                                                        AS [Contract Value],
+                     CASE WHEN acct_type = 'RV' AND column_nbr = 7          THEN Sum(act_amount) ELSE 0 END  AS [Billed Amt],
+                     CASE WHEN acct_type = 'EX' AND column_nbr = 5          THEN Sum(eac_amount) ELSE 0 END AS [EAC/Budget],
+                     CASE WHEN acct_type = 'EX' AND column_nbr = 4          THEN Sum(act_amount) ELSE 0 END AS [JTD Costs],
+                     CASE WHEN acct_type = 'RV' and column_nbr = 3          THEN Sum(act_amount) else 0 End as [RTD],
+                     CASE WHEN pjt_entity in ('39160875', '38160875', '37160875', '36101210', '49160875', '41160875', '43101210', '38162150', '34162150', '55162150', '34162150', '55162130', '59160875') THEN 'nonrev' else 'rev' End as [Backlog Type]
+       From
+       (SELECT distinct pjptdsum.project,C.Name, c.CustID [CustID], pjpent.pjt_entity_desc,pjptdsum.pjt_entity,pjptdsum.acct,
+                     pjrepcol.column_nbr,pjproj.project_desc, pjproj.opportunityID, pjactsum.fsyear_num, pjactsum.amount_bf, act_amount, pjproj.gl_subacct,
+                     pjproj.manager1,pjproj.status_pa, pje.emp_name, pjproj.slsperID [Acct Mgr], pjacct.acct_type,pjptdsum.eac_amount,pjacct.Sort_num,
+                     pjproj.cpnyid,pjproj.manager2,pjproj.start_date,pjproj.end_date, pjptdsum.com_amount, pjproj.status_lb
+       FROM   ((((((NewGroundApp.dbo.pjptdsum pjptdsum (nolock)
+                                  INNER JOIN NewGroundApp.dbo.pjpent pjpent                                   ON (pjptdsum.pjt_entity = pjpent.pjt_entity)
+                                                                                                                                                AND (pjptdsum.project = pjpent.project))
+                                  INNER JOIN NewGroundApp.dbo.pjrepcol pjrepcol (nolock)        ON pjptdsum.acct = pjrepcol.acct)
+                                  INNER JOIN NewGroundApp.dbo.pjproj pjproj (nolock)                   ON pjptdsum.project = pjproj.project)
+                                  INNER JOIN NewGroundApp.dbo.Customer C                                      ON PJPROJ.Customer = C.CustID)
+                                  INNER JOIN NewGroundApp.dbo.pjacct pjacct (nolock)                   ON pjptdsum.acct = pjacct.acct)
+                                  LEFT OUTER JOIN NewGroundApp.dbo.pjactsum pjactsum (nolock) ON ((pjptdsum.acct = pjactsum.acct)
+                                                                                                                                                AND ( pjptdsum.pjt_entity = pjactsum.pjt_entity ) )
+                                                                                                                                                AND ( pjptdsum.project = pjactsum.project )
+                                  LEFT OUTER JOIN NewGroundApp.dbo.PJEmploy PJE (nolock) ON PJE.Employee = pjproj.manager1)
+       Where pjproj.cpnyid = 'R' and  (Left(pjptdsum.Project,1) = 'A' or  Left(pjptdsum.Project,1) = 'R') and pjproj.status_pa = 'A' and not pjptdsum.pjt_entity like '%160875%' and not pjptdsum.pjt_entity like '%5562150%'  --and not Left(pjptdsum.pjt_entity,2) = 00
+         and (pjactsum.fsyear_num = Case When Month(DateAdd(mm,-1,GetDate())) = 12 Then Year(GetDate()) - 1 Else Year(GetDate()) End or pjactsum.fsyear_num is null) and column_nbr in ('3','4','5','6','7')
+               
+       ------For Testing------------
+       ----Order By column_nbr
+       )X
+       Group By project, Name, [Acct Mgr], CustID, project_desc, pjt_entity, pjt_entity_desc, Sort_num, acct, column_nbr, fsyear_num, acct_type,start_date, end_date, emp_name, status_lb, opportunityID 
+ 
+)Y
+ 
+LEFT OUTER JOIN
+ 
+       (SELECT a.project, Round((IsNull(Sum(com_amount),0)),0) [Commitments]
+    FROM            PJPTDSUM A
+       join pjproj PJ on a.project = pj.project
+       Join pjacct pa on a.acct = pa.acct
+    WHERE A.com_amount != 0 and PJ.status_pa = 'A' 
+       and pa.acct_type = 'EX'
+          Group By A.Project ) COM on COM.Project = Y.Project
+       /*---------------------------------------------------------------------*/
+ 
+LEFT OUTER JOIN
+ 
+       (select a.ProjectID, Round((IsNull(Sum(DocBal),0)),0) as [Open AR]
+       from dbo.Ardoc A(nolock)
+       Inner Join dbo.PJProj P(nolock) on P.Project = A.ProjectID
+       where doctype in ('IN', 'CM', 'DM') and P.Status_pa = 'A' group by a.projectid ) ARBAL on ARBAL.Projectid = y.project
+      
+       /*---------------------------------------------------------------------*/
+ 
+LEFT OUTER JOIN
+       (select a.ProjectID,Round((IsNull(Sum(DocBal),0)),0) as [Open AP]
+       from dbo.APDoc A(nolock)
+       Inner Join dbo.PJProj P(nolock) on P.Project = A.ProjectID
+       where A.doctype in ('vo','ad','ac')  and p.status_pa = 'A' group by a.projectid ) APBAL on APBAL.Projectid = y.project
+ 
+       /*---------------------------------------------------------------------*/
+ 
+Where left(y.project,1) = 'A'  or left(y.project,1) = 'R'
+Group By Name, [Acct Mgr], y.project, project_desc, start_date, end_date, emp_name, [Backlog Type], [CustID], [opportunityID]
+--Having (Round(Sum([Contract Value]),0) - Round(Sum([RTD]),0)  < - 1 or  Round(Sum([Contract Value]),0) - Round(Sum([RTD]),0) > 1)
+ 
+-------FOR Testing------------
+----Order By Project
+) z
+Group By Name, project, Description, [start date], [end date], Manager, [acct mgr], [CustID], [opportunityID]
+Order By [Project]
