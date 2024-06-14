@@ -1,6 +1,6 @@
 Select project [Project], RTrim(Name) AS Name, [CustId], opportunityID, [Description], CAST([Start Date] as Date) [Start Date],
               CAST([end date] as Date) [End Date], Manager, [Acct Mgr],
-              Round(Sum([Budg Rev]),0)                                                                                                   AS [Budg Rev],
+               Round((Sum([Budg Rev]) - (SUM([Non-Rev Backlog]))),0)                                                                                               AS [Budg Rev],
               Round(Sum([PTD Rev]),0)                                                                                                                         AS [PTD Rev],
               Round(Sum([PTD Costs]),0)                                                                                                         AS [PTD Costs],
               IsNull(max([Open PO's]),0)                                                                                                        AS [Open PO's],
